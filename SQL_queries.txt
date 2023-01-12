@@ -1,0 +1,276 @@
+Milestone 3
+
+Task 1:
+
+SELECT MAX(LENGTH(product_code)) FROM orders_table;
+
+ALTER TABLE orders_table
+ALTER COLUMN date_uuid TYPE UUID USING date_uuid::uuid,
+ALTER COLUMN user_uuid TYPE UUID USING user_uuid::uuid,
+ALTER COLUMN card_number TYPE VARCHAR (19),
+ALTER COLUMN store_code TYPE VARCHAR (12),
+ALTER COLUMN product_code TYPE VARCHAR (11),
+ALTER COLUMN product_quantity TYPE SMALLINT;
+
+Task 2:
+
+
+SELECT MAX(LENGTH(country_code)) FROM dim_users;
+
+ALTER TABLE dim_users
+ALTER COLUMN first_name TYPE VARCHAR (255),
+ALTER COLUMN last_name TYPE VARCHAR (255),
+ALTER COLUMN date_of_birth TYPE date USING date_of_birth::date,
+ALTER COLUMN country_code TYPE CHAR(3),
+ALTER COLUMN user_uuid TYPE UUID USING user_uuid::uuid,
+ALTER COLUMN join_date TYPE date USING join_date::date;
+
+
+Task 3:
+
+SELECT MAX(LENGTH(store_code)) FROM dim_store_details;
+SELECT MAX(LENGTH(country_code)) FROM dim_store_details;
+
+UPDATE dim_store_details
+SET 
+longitude = NULL,
+latitude = NULL,
+country_code = NULL,
+continent = NULL
+WHERE store_code = 'WEB-1388012W';
+
+ALTER TABLE dim_store_details
+ALTER COLUMN longitude TYPE DECIMAL USING longitude::numeric,
+ALTER COLUMN locality TYPE VARCHAR (255),
+ALTER COLUMN store_code TYPE VARCHAR (12),
+ALTER COLUMN staff_numbers TYPE INTEGER USING staff_numbers::integer,
+ALTER COLUMN opening_date TYPE DATE USING opening_date::date,
+ALTER COLUMN store_type TYPE VARCHAR (255),
+ALTER COLUMN latitude TYPE DECIMAL USING longitude::numeric,
+ALTER COLUMN country_code TYPE CHAR (3),
+ALTER COLUMN continent TYPE VARCHAR (255);
+
+
+Task 4:
+
+UPDATE dim_products
+SET product_price = LTRIM (product_price, '£');
+
+ALTER TABLE dim_products ADD COLUMN weight_class varchar(50);
+
+UPDATE dim_products 
+SET weight_class = 
+	CASE WHEN (weight >= 0 AND weight < 3) THEN 'Light'
+	WHEN (weight >=  3 AND weight<= 40) THEN 'Mid_Sized'
+	WHEN (weight >= 41 AND weight <= 140) THEN 'Heavy'
+	WHEN (weight > 140) THEN 'Truck_Required' 
+	END;
+
+
+Task 5:
+
+ALTER TABLE dim_products
+RENAME COLUMN removed TO still_available;
+
+SELECT MAX(LENGTH("EAN")) FROM dim_products;
+SELECT MAX(LENGTH(product_code)) FROM dim_products;
+
+UPDATE dim_products
+SET still_available = REPLACE(still_available, 'Still_avaliable', 'yes');
+
+UPDATE dim_products
+SET still_available = REPLACE(still_available, 'Removed', 'no');
+
+ALTER TABLE dim_products
+ALTER COLUMN product_price TYPE DECIMAL USING product_price::numeric,
+ALTER COLUMN weight TYPE DECIMAL,
+ALTER COLUMN "EAN" TYPE VARCHAR (17),
+ALTER COLUMN product_code TYPE VARCHAR (11),
+ALTER COLUMN date_added TYPE DATE,
+ALTER COLUMN uuid TYPE uuid USING uuid::uuid,
+ALTER COLUMN still_available TYPE BOOL USING still_available::boolean;
+
+Task 6:
+
+SELECT MAX(LENGTH(month)) FROM dim_date_times;
+SELECT MAX(LENGTH(year)) FROM dim_date_times;
+SELECT MAX(LENGTH(day)) FROM dim_date_times;
+SELECT MAX(LENGTH(time_period)) FROM dim_date_times;
+
+
+ALTER TABLE dim_date_times
+ALTER COLUMN month TYPE CHAR(2),
+ALTER COLUMN year TYPE CHAR(4),
+ALTER COLUMN day TYPE CHAR(2),
+ALTER COLUMN time_period TYPE VARCHAR (10),
+ALTER COLUMN date_uuid TYPE uuid USING date_uuid::uuid;
+
+Task 7:
+
+SELECT MAX(LENGTH(card_number)) FROM dim_card_details;
+SELECT MAX(LENGTH(expiry_date)) FROM dim_card_details;
+
+ALTER TABLE dim_card_details
+ALTER COLUMN card_number TYPE VARCHAR(22),
+ALTER COLUMN expiry_date TYPE VARCHAR(10);
+
+Task 8:
+
+ALTER TABLE dim_card_details
+ALTER COLUMN card_number SET not null;
+
+ALTER TABLE dim_card_details
+ADD CONSTRAINT card_number_pk
+PRIMARY KEY (card_number);
+
+ALTER TABLE dim_store_details
+ADD CONSTRAINT store_code_pk
+PRIMARY KEY (store_code);
+
+ALTER TABLE dim_users
+ADD CONSTRAINT user_uuid_pk
+PRIMARY KEY (user_uuid);
+
+ALTER TABLE dim_date_times
+ADD CONSTRAINT date_uuid_pk
+PRIMARY KEY (date_uuid);
+
+ALTER TABLE dim_products
+ADD CONSTRAINT product_code_pk
+PRIMARY KEY (product_code);
+
+Task 9:
+
+ALTER TABLE orders_table
+ADD CONSTRAINT date_times_fk FOREIGN KEY(date_uuid)
+REFERENCES dim_date_times(date_uuid);
+
+ALTER TABLE orders_table
+ADD CONSTRAINT products_fk FOREIGN KEY(product_code)
+REFERENCES dim_products(product_code);
+
+ALTER TABLE orders_table
+ADD CONSTRAINT stores_fk FOREIGN KEY(store_code)
+REFERENCES dim_store_details(store_code);
+
+
+
+
+Milestone 4
+Task 1:
+
+SELECT country_code, COUNT(*) AS total_no_stores
+FROM dim_store_details
+GROUP BY country_code
+ORDER BY total_no_stores DESC;
+
+Task 2:
+
+SELECT locality, COUNT(*) AS total_no_stores
+FROM dim_store_details
+GROUP BY locality
+ORDER BY total_no_stores DESC;
+
+Task 3:
+SELECT SUM(product_price * product_quantity) AS total_sales,
+month
+FROM orders_table
+JOIN dim_products USING (product_code)
+JOIN dim_date_times ON orders_table.date_uuid = dim_date_times.date_uuid
+GROUP BY month;
+
+
+Task 4:
+SELECT COUNT(orders_table.date_uuid) AS number_of_sales, SUM(orders_table.product_quantity) AS product_quantity_count, 
+CASE 
+	WHEN (orders_table.store_code = 'WEB-1388012W') THEN 'Web'
+	ELSE 'Offline'
+END AS location
+FROM orders_table
+JOIN dim_store_details ON orders_table.store_code = dim_store_details.store_code
+GROUP BY location
+ORDER BY number_of_sales;
+
+Task 5:
+WITH cte_tsales AS(
+	SELECT 
+	dim_store_details.store_type AS store_type, 
+	SUM(dim_products.product_price * orders_table.product_quantity) AS total_sales
+	FROM orders_table
+	JOIN dim_store_details ON orders_table.store_code = dim_store_details.store_code
+	JOIN dim_products ON orders_table.product_code = dim_products.product_code
+	GROUP BY store_type
+)	
+
+SELECT cte_tsales.store_type, cte_tsales.total_sales, 
+round((100 * cte_tsales.total_sales / SUM(cte_tsales.total_sales) OVER()), 2) AS percentage_total
+FROM cte_tsales 
+GROUP BY cte_tsales.store_type, cte_tsales.total_sales
+ORDER BY cte_tsales.total_sales DESC;
+ 
+
+Task 6:
+
+WITH cte_ysales AS(
+	SELECT 
+	SUM(dim_products.product_price * orders_table.product_quantity) AS total_sales,
+	year, month
+	FROM orders_table
+	JOIN dim_products ON orders_table.product_code = dim_products.product_code
+	JOIN dim_date_times ON orders_table.date_uuid = dim_date_times.date_uuid
+	GROUP BY month, year
+)	
+
+SELECT * FROM cte_ysales
+ORDER BY total_sales DESC
+LIMIT 5;
+
+
+Task 7:
+
+ALTER TABLE dim_store_details
+ALTER COLUMN country_code TYPE CHAR (3);
+
+UPDATE dim_store_details
+SET country_code = 'Web'
+WHERE store_type = 'Web Portal';
+
+
+SELECT SUM(staff_numbers) AS total_staff_numbers, country_code
+FROM dim_store_details
+GROUP BY country_code
+ORDER BY total_staff_numbers DESC;
+
+Task 8:
+WITH cte_Gsales AS(
+	SELECT 
+	SUM(dim_products.product_price * orders_table.product_quantity) AS total_sales,
+	store_type, country_code
+	FROM orders_table
+	JOIN dim_products ON orders_table.product_code = dim_products.product_code
+	JOIN dim_store_details ON orders_table.store_code = dim_store_details.store_code
+	GROUP BY country_code, store_type
+)	
+
+SELECT * FROM cte_Gsales
+WHERE country_code = 'DE'
+ORDER BY total_sales;
+
+Task 9: 
+
+WITH cte_t AS(
+	SELECT year AS year, complete_time AS new_time
+	FROM dim_date_times
+	ORDER BY new_time
+	),
+	cte_t2 AS(
+	SELECT year, new_time,
+	lead(new_time) OVER () AS con_time2
+	FROM cte_t
+	)
+	
+SELECT year, AVG(AGE(con_time2,new_time)) AS actual_time_taken
+FROM cte_t2
+GROUP BY year
+ORDER BY year DESC
+LIMIT 5;
