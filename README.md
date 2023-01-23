@@ -20,5 +20,5 @@ Amongst others, the data sources are from:
 Casted the column data type to be the desired configuration. Created new column to have categorical data based on input from another table. Configured the primary and foreign keys on all tables to permit further analysis and database query.
 
 ## Milestone 4 - Querying the data.
-COnducted various database query to answer the questions. Subqueries and joins as well as CTE (common table expressions) were used extensively througout the exercise.
+Conducted various database query to answer the questions. Subqueries and joins as well as CTE (common table expressions) were used extensively througout the exercise.
 
